@@ -1,0 +1,42 @@
+name: Deploy to CapRover
+
+on:
+  push:
+    branches:
+      - main  # Specify the branch for the deploy action
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/${{ secrets.CAPROVER_APP_NAME }}:latest
+
+      - name: Deploy to CapRover
+        env:
+          CAPROVER_SERVER: ${{ secrets.CAPROVER_SERVER }}
+          CAPROVER_USERNAME: ${{ secrets.CAPROVER_USERNAME }}
+          CAPROVER_PASSWORD: ${{ secrets.CAPROVER_PASSWORD }}
+          CAPROVER_APP_NAME: ${{ secrets.CAPROVER_APP_NAME }}
+        run: |
+          docker run caprover/cli-caprover \
+            serversetup -s $CAPROVER_SERVER -u $CAPROVER_USERNAME -p $CAPROVER_PASSWORD
+          docker run caprover/cli-caprover \
+            deploy -h $CAPROVER_SERVER -a $CAPROVER_APP_NAME -i ${{ secrets.DOCKER_USERNAME }}/${{ secrets.CAPROVER_APP_NAME }}:latest
